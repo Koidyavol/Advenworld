@@ -52,7 +52,7 @@ function isBlocked(x,y){if(x<0||y<0||x>=COLS||y>=ROWS)return true;if(roads.has(y
 const names=['Mira','Kael','Luna','Ronan','Sera','Theo','Nia','Alden','Kira','Daren','Yuna','Eli'];
 const colors=['#f4c95d','#72b8ff','#e68da4','#8ee0a1','#c8a5ff','#ffab70'];
 function spawn(){agents=[];steps=0;tick=0;day=1;for(let i=0;i<12;i++){let x,y;do{x=Math.floor(Math.random()*COLS);y=Math.floor(Math.random()*ROWS)}while(isBlocked(x,y));agents.push({name:names[i],x,y,dir:Math.floor(Math.random()*4),color:colors[i%colors.length],type:i%5===0?'Petualang':i%4===0?'Pedagang':'Warga',wait:Math.random()*15})}addFeed('✦','Penduduk mulai beraktivitas di Kota Eldoria.')}
-function addFeed(icon,msg){feed.unshift({icon,msg});feed=feed.slice(0,4);document.getElementById('feed').innerHTML=feed.map(e=>\`<div class="event"><i>\${e.icon}</i><span>\${e.msg}</span></div>\`).join('')}
+function addFeed(icon,msg){feed.unshift({icon,msg});feed=feed.slice(0,4);document.getElementById('feed').innerHTML=feed.map(e=>`<div class="event"><i>${e.icon}</i><span>${e.msg}</span></div>`).join('')}
 function drawBuilding(b){let x=b.x*T,y=b.y*T,w=b.w*T,h=b.h*T;
  ctx.fillStyle='#17241f';ctx.fillRect(x+4,y+6,w,h);
  ctx.fillStyle=b.color;ctx.fillRect(x+2,y+2,w-4,h-5);
@@ -90,10 +90,10 @@ function move(){if(paused)return;tick++;agents.forEach(a=>{a.wait--;if(a.wait>0)
  // Bias ringan agar bot tetap berada di jaringan jalan, tetapi tetap bisa berbelok.
  let options=choices.filter(p=>roads.has(p.y*COLS+p.x));if(options.length&&Math.random()<.82)choices=options;
  const p=choices[Math.floor(Math.random()*choices.length)];a.x=p.x;a.y=p.y;a.dir=p.dir;a.wait=5+Math.random()*10;steps++;document.getElementById('steps').textContent=steps;
- if(Math.random()<.07)addFeed('➜',\`\${a.name} berjalan menuju \${['utara','selatan','barat','timur'][p.dir]}.\`);
+ if(Math.random()<.07)addFeed('➜',`${a.name} berjalan menuju ${['utara','selatan','barat','timur'][p.dir]}.`);
  });
- if(tick%600===0){day++;addFeed('☀',\`Hari simulasi \${day} dimulai.\`)}
- document.getElementById('clock').textContent=\`Hari \${day} · \${String(8+Math.floor(tick/60)%12).padStart(2,'0')}:\${String(tick%60).padStart(2,'0')}\`;
+ if(tick%600===0){day++;addFeed('☀',`Hari simulasi ${day} dimulai.`)}
+ document.getElementById('clock').textContent=`Hari ${day} · ${String(8+Math.floor(tick/60)%12).padStart(2,'0')}:${String(tick%60).padStart(2,'0')}`;
  draw();
 }
 document.getElementById('pause').onclick=()=>{paused=!paused;document.getElementById('pause').textContent=paused?'Lanjut':'Jeda';document.getElementById('live').textContent=paused?'Ⅱ SIMULASI DIJEDA':'● SIMULASI AKTIF';document.getElementById('live').style.color=paused?'#f2c66d':'#8cf0bc'};
