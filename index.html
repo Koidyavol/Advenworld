@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Kota RPG — Simulasi Bot</title>
+<style>
+:root{color-scheme:dark;--bg:#10151d;--panel:#192330;--line:#2c3b4d;--text:#eaf1f8;--muted:#9fb0c2;--gold:#f2c66d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#243448,#10151d 65%);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);min-height:100vh}
+main{max-width:1100px;margin:auto;padding:16px}.head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.eyebrow{font-size:11px;letter-spacing:2px;color:var(--gold);font-weight:800}.head h1{font-size:clamp(22px,4vw,34px);margin:3px 0}.sub{color:var(--muted);font-size:13px}.live{border:1px solid #315b4c;background:#15372e;color:#8cf0bc;border-radius:999px;padding:7px 11px;font-size:12px;white-space:nowrap}
+.layout{display:grid;grid-template-columns:1fr;gap:12px}.gamebox,.panel{background:#151e29;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 14px 40px #0003}.gamebar{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}canvas{display:block;width:100%;height:auto;max-height:78vh;object-fit:contain;image-rendering:pixelated;background:#233b32}.legend{display:flex;flex-wrap:wrap;gap:12px;padding:10px 14px;color:var(--muted);font-size:11px}.dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}.panel{padding:14px}.panel h2{font-size:14px;margin:0 0 12px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}.stat{background:#202d3b;border:1px solid #304052;border-radius:10px;padding:10px}.stat small{display:block;color:var(--muted);font-size:10px}.stat strong{font-size:21px}.section{border-top:1px solid var(--line);padding-top:13px;margin-top:13px}.feed{display:flex;flex-direction:column;gap:9px;font-size:12px;color:#bdc9d6}.event{display:flex;gap:8px;align-items:flex-start}.event i{font-style:normal;color:var(--gold)}.note{color:var(--muted);font-size:12px;line-height:1.6}.controls{display:flex;gap:8px;margin-top:12px}.btn{flex:1;background:#27384a;color:var(--text);border:1px solid #3a5067;border-radius:10px;padding:10px;font-weight:700;cursor:pointer}.btn:hover{background:#334b62}.btn.primary{background:#775b2c;border-color:#9b783c}.foot{font-size:11px;color:#718397;text-align:center;padding:14px}
+@media(max-width:760px){main{padding:10px}.head{align-items:flex-start}.gamebar{font-size:11px}}
+</style>
+</head>
+<body>
+<main>
+ <header class="head"><div><div class="eyebrow">AUTONOMOUS RPG SIMULATION</div><h1>Kota Eldoria</h1><div class="sub">Kota fantasi hidup · bot mengendalikan seluruh penduduk</div></div><div class="live" id="live">● SIMULASI AKTIF</div></header>
+ <div class="layout">
+  <section class="gamebox">
+   <div class="gamebar"><span>ELDORIA CENTRAL DISTRICT</span><span id="clock">Hari 1 · 08:00</span></div>
+   <canvas id="world" width="560" height="800" aria-label="Peta kota RPG dengan penduduk bot bergerak otomatis"></canvas>
+   <div class="legend"><span><i class="dot" style="background:#f4c95d"></i>Warga</span><span><i class="dot" style="background:#72b8ff"></i>Petualang</span><span><i class="dot" style="background:#e68da4"></i>Pedagang</span><span>▧ Bangunan</span><span>━ Jalan batu</span></div>
+  </section>
+  </section>
+  <aside class="panel">
+   <h2>Status Kota</h2>
+   <div class="stats"><div class="stat"><small>PENDUDUK</small><strong>12</strong></div><div class="stat"><small>LANGKAH</small><strong id="steps">0</strong></div></div>
+   <div class="section"><h2>Aktivitas Terbaru</h2><div class="feed" id="feed"></div></div>
+   <div class="controls"><button class="btn primary" id="pause">Jeda</button><button class="btn" id="reset">Ulang</button></div>
+  </aside>
+ </div>
+ <div class="foot">Mode vertikal · bot bergerak otomatis · tanpa kontrol pemain</div>
+</main>
+<script>
+(()=>{
+const canvas=document.getElementById('world'),ctx=canvas.getContext('2d');
+const W=560,H=800,T=40,COLS=14,ROWS=20;
+let paused=false,steps=0,tick=0,day=1,agents=[],feed=[];
+const roads=new Set();
+function roadRect(x1,y1,x2,y2){for(let y=y1;y<=y2;y++)for(let x=x1;x<=x2;x++)roads.add(y*COLS+x)}
+// Grid jalan yang saling tersambung, dengan plaza di tengah.
+roadRect(0,9,13,10);roadRect(6,0,7,19);roadRect(2,4,11,5);roadRect(2,15,11,15);roadRect(3,7,10,12);
+const buildings=[
+{x:1,y:1,w:4,h:3,name:'PENGINAPAN',color:'#875747',roof:'#c77b5e'},
+{x:9,y:1,w:4,h:3,name:'GUILD',color:'#5c6f8e',roof:'#8da4c8'},
+{x:1,y:6,w:3,h:2,name:'TOKO',color:'#9b7544',roof:'#e0b96a'},
+{x:10,y:6,w:3,h:2,name:'KEDAI',color:'#8c4f62',roof:'#d77d91'},
+{x:1,y:16,w:4,h:3,name:'RUMAH',color:'#4f7a68',roof:'#79b49a'},
+{x:9,y:16,w:4,h:3,name:'KUIL',color:'#77728e',roof:'#b6a9d8'}
+];
+function isBlocked(x,y){if(x<0||y<0||x>=COLS||y>=ROWS)return true;if(roads.has(y*COLS+x))return false;return buildings.some(b=>x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h)}
+const names=['Mira','Kael','Luna','Ronan','Sera','Theo','Nia','Alden','Kira','Daren','Yuna','Eli'];
+const colors=['#f4c95d','#72b8ff','#e68da4','#8ee0a1','#c8a5ff','#ffab70'];
+function spawn(){agents=[];steps=0;tick=0;day=1;for(let i=0;i<12;i++){let x,y;do{x=Math.floor(Math.random()*COLS);y=Math.floor(Math.random()*ROWS)}while(isBlocked(x,y));agents.push({name:names[i],x,y,dir:Math.floor(Math.random()*4),color:colors[i%colors.length],type:i%5===0?'Petualang':i%4===0?'Pedagang':'Warga',wait:Math.random()*15})}addFeed('✦','Penduduk mulai beraktivitas di Kota Eldoria.')}
+function addFeed(icon,msg){feed.unshift({icon,msg});feed=feed.slice(0,4);document.getElementById('feed').innerHTML=feed.map(e=>\`<div class="event"><i>\${e.icon}</i><span>\${e.msg}</span></div>\`).join('')}
+function drawBuilding(b){let x=b.x*T,y=b.y*T,w=b.w*T,h=b.h*T;
+ ctx.fillStyle='#17241f';ctx.fillRect(x+4,y+6,w,h);
+ ctx.fillStyle=b.color;ctx.fillRect(x+2,y+2,w-4,h-5);
+ ctx.fillStyle=b.roof;ctx.fillRect(x,y,w,10);ctx.fillRect(x+5,y+10,w-10,5);
+ ctx.fillStyle='#293640';for(let wx=x+10;wx<x+w-8;wx+=25){ctx.fillRect(wx,y+22,11,13);ctx.fillStyle='#d6c18a';ctx.fillRect(wx+2,y+24,7,9);ctx.fillStyle='#293640'}
+ ctx.fillStyle='#382f2a';ctx.fillRect(x+w/2-7,y+h-24,14,19);
+ ctx.fillStyle='#f2e6c5';ctx.font='bold 9px system-ui';ctx.textAlign='center';ctx.fillText(b.name,x+w/2,y+h-6);
+}
+function draw(){ctx.clearRect(0,0,W,H);
+ // rumput dan pola ubin
+ for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){ctx.fillStyle=((x+y)%2===0)?'#315441':'#2d4e3e';ctx.fillRect(x*T,y*T,T,T);ctx.fillStyle='#42644c';ctx.fillRect(x*T+5,y*T+8,2,2);ctx.fillRect(x*T+29,y*T+29,2,2);
+ if(roads.has(y*COLS+x)){ctx.fillStyle=((x+y)%2===0)?'#8b918e':'#7d8583';ctx.fillRect(x*T,y*T,T,T);ctx.strokeStyle='#6b7471';ctx.lineWidth=1;ctx.strokeRect(x*T+.5,y*T+.5,T-1,T-1);ctx.fillStyle='#aab0a8';ctx.fillRect(x*T+4,y*T+4,2,2)}
+ }
+ // plaza fountain
+ ctx.fillStyle='#c5bda5';ctx.beginPath();ctx.arc(280,400,48,0,Math.PI*2);ctx.fill();ctx.fillStyle='#668c99';ctx.beginPath();ctx.arc(280,400,39,0,Math.PI*2);ctx.fill();ctx.fillStyle='#91d5e1';ctx.beginPath();ctx.arc(280,400,25,0,Math.PI*2);ctx.fill();ctx.fillStyle='#d4e9df';ctx.beginPath();ctx.arc(280,400,8,0,Math.PI*2);ctx.fill();
+ // lamp posts
+ [[160,320],[400,320],[160,480],[400,480],[280,200],[280,600]].forEach(([x,y])=>{ctx.fillStyle='#2a2c30';ctx.fillRect(x-3,y,6,14);ctx.fillStyle='#f6d98b';ctx.beginPath();ctx.arc(x,y-2,6,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f6d98b33';ctx.beginPath();ctx.arc(x,y-2,13,0,Math.PI*2);ctx.fill()});
+ buildings.forEach(drawBuilding);
+ agents.forEach(a=>{let px=a.x*T+20,py=a.y*T+22;
+ // bayangan, badan, kepala, dan arah pandang
+ ctx.fillStyle='#17251e88';ctx.beginPath();ctx.ellipse(px,py+9,10,4,0,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#26313a';ctx.fillRect(px-7,py-1,14,15);ctx.fillStyle=a.color;ctx.fillRect(px-6,py-5,12,13);
+ ctx.fillStyle='#eac5a0';ctx.beginPath();ctx.arc(px,py-10,7,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#4b342e';ctx.fillRect(px-7,py-14,14,5);
+ ctx.fillStyle='#202a30';let ex=0,ey=0;if(a.dir===0)ey=-2;if(a.dir===1)ey=2;if(a.dir===2)ex=-2;if(a.dir===3)ex=2;ctx.fillRect(px-3+ex,py-10+ey,2,2);ctx.fillRect(px+2+ex,py-10+ey,2,2);
+ ctx.fillStyle='#fff3d6';ctx.font='10px system-ui';ctx.textAlign='center';ctx.fillText(a.name,px,py-22);
+ });
+ // border vignette
+ let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#00000014');g.addColorStop(1,'#00000022');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+}
+function move(){if(paused)return;tick++;agents.forEach(a=>{a.wait--;if(a.wait>0)return;
+ const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+ let choices=dirs.map((d,i)=>({x:a.x+d[0],y:a.y+d[1],dir:i})).filter(p=>!isBlocked(p.x,p.y));
+ if(!choices.length){a.wait=3;return}
+ // Bias ringan agar bot tetap berada di jaringan jalan, tetapi tetap bisa berbelok.
+ let options=choices.filter(p=>roads.has(p.y*COLS+p.x));if(options.length&&Math.random()<.82)choices=options;
+ const p=choices[Math.floor(Math.random()*choices.length)];a.x=p.x;a.y=p.y;a.dir=p.dir;a.wait=5+Math.random()*10;steps++;document.getElementById('steps').textContent=steps;
+ if(Math.random()<.07)addFeed('➜',\`\${a.name} berjalan menuju \${['utara','selatan','barat','timur'][p.dir]}.\`);
+ });
+ if(tick%600===0){day++;addFeed('☀',\`Hari simulasi \${day} dimulai.\`)}
+ document.getElementById('clock').textContent=\`Hari \${day} · \${String(8+Math.floor(tick/60)%12).padStart(2,'0')}:\${String(tick%60).padStart(2,'0')}\`;
+ draw();
+}
+document.getElementById('pause').onclick=()=>{paused=!paused;document.getElementById('pause').textContent=paused?'Lanjut':'Jeda';document.getElementById('live').textContent=paused?'Ⅱ SIMULASI DIJEDA':'● SIMULASI AKTIF';document.getElementById('live').style.color=paused?'#f2c66d':'#8cf0bc'};
+document.getElementById('reset').onclick=()=>{spawn();draw();document.getElementById('steps').textContent='0'};
+spawn();draw();setInterval(move,100);
+})();
+</script>
+</body>
+</html>
